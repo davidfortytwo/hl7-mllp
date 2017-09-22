@@ -1,5 +1,9 @@
 # hl7-mllpFuzzer
 
+hl7-mllpFuzzer can be used to determine which message types are accepted by a TCP-Listener. The most common message types are included.
+
+**Please don't use hl7-mllpFuzzer in a productive environment, you may seriously harm people. This is for testing purpose only.**
+
 Usage:
 ```
 root@kali:~# python hl7_fuzz.py -h
