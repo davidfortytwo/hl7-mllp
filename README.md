@@ -48,29 +48,6 @@ file                  path to hl7 file 
 inject                for example: "PID.5.1" = Firstname
 
 optional arguments:  
--h, --help                        show this help message and exit  
--p PAYLOAD, --payload PAYLOAD     path to custom payload file
-```
-
-Example usage injection mode with builtin payload:
-```
-C:\Python27>python.exe hl7_inject.py 127.0.0.1 1234 MSSQL C:\Python27\ADT_20150614_080631_2216_A03.HL7 PID.5.1
-[+] Starting injection
-[+] 16 messages send.
-```
-
-Show help injection mode:
-```
-C:\Python27>python.exe hl7_inject.py -h
-usage: hl7_inject.py [-h] [-p PAYLOAD] host port mode file inject
-positional arguments: 
-host                  host to connect to  
-port                  port to connect to  
-mode                  "MSSQL", "MYSQL", "custom", "file" 
-file                  path to hl7 file 
-inject                for example: "PID.5.1" = Firstname
-
-optional arguments:  
 -h, --help                        show this help message and exit  
 -p PAYLOAD, --payload PAYLOAD     path to custom payload file
 ```
