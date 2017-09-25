@@ -59,17 +59,6 @@ C:\Python27>python.exe hl7_inject.py 127.0.0.1 1234 MSSQL C:\Python27\ADT_201506
 [+] 16 messages send.
 ```
 
-
-Example usage injection mode with custom payload:
-```
-C:\Python27>ile input:```
-root@kali:~# python hl7_fuzz.py 192.168.188.3 1234 fuzz -p custom -f /root/test.hl7
-[+] Start payload custom
-[+] Starting MLLP sender
-[+] Message type accepted: ADT = Admit Discharge Transfer
-[+] Finished sending /root/test.hl7.
-```
-
 Show help injection mode:
 ```
 C:\Python27>python.exe hl7_inject.py -h
@@ -93,7 +82,6 @@ C:\Python27>python.exe hl7_inject.py 127.0.0.1 1234 MSSQL C:\Python27\ADT_201506
 [+] 16 messages send.
 ```
 
-
 Example usage injection mode with custom payload:
 ```
 C:\Python27>python.exe hl7_inject.py 127.0.0.1 1234 custom C:\Python27\ADT_20150614_080631_2216_A03.HL7 PID.5.1
@@ -103,7 +91,6 @@ Enter your payload: 'This is a really Evil String'
 [+] Message send.
 ...
 ```
-
 
 Example usage injection mode with custom payload from file:
 ```
