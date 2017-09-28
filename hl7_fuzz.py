@@ -3,6 +3,16 @@ hl7_fuzzer
 Never use hl7_fuzzer in production Environment, you may seriously harm peoples health!!! hl7_fuzzer is for testing purpose only.
 The main purpose of hl7_fuzzer is to find which messages are accepted and acknowledged with "AA" by a MLLP Server.
 
+Install dependencies:
+python-hl7 is available on PyPi via pip or easy_install:
+
+pip install -U hl7
+
+For recent versions of Debian and Ubuntu, the python-hl7 package is available:
+
+sudo apt-get install python-hl7
+
+
 Check out this site if you need more Message templates:
 http://www.mieweb.com/wiki/Sample_HL7_Messages#MDM.5ET02
 
@@ -106,7 +116,6 @@ def getTime():
 #send message to host and port, check if response is "AA" which means message acceptedd
 def mllpSender(host, port, message):
 	try:
-		print "[+] Starting MLLP sender"
 		if type(message) is str: 
 			h = hl7.parse(message)
 		else:
@@ -116,7 +125,7 @@ def mllpSender(host, port, message):
 			response = client.send_message(message)
 			r = hl7.parse(response)
 			if str(r[1][1]) == "AA": 
-				print "[+] Message type accepted: " + str(h[0][9][0][0]) + " = " + messageType[str(h[0][9][0][0])]
+				print "[+] Message type accepted: " + str(h[0][9][0][0]) + "^" + str(h[0][9][0][1]) + " = " + messageType[str(h[0][9][0][0])]
 			else: pass
 	except:
 		print "[-] MLLP sending failed."
@@ -125,17 +134,19 @@ def mllpSender(host, port, message):
 #Create messages for most common message types, only MSH segment
 def levelOne(host, port):
 	messageTypes = ["ADT", "BAR", "DFT", "MDM", "MFN", "ORM", "ORU", "QRY", "RAS", "RDE", "RGV", "SIU"]
+	eventTypes = ["A01", "O01", "P03", "P01", "T02", "M02", "R01", "A19", "O17", "O11", "O15", "S12"]
 	for messageType in messageTypes:
-		message = 'MSH|^~\&|HISSERVER|HISVENDOR|FUZZER|TEST|%s||%s^A01|MSG123|P|2.3||||AL|\r'%(getTime(), messageType)
-		mllpSender(host, port, message)
-	print "[+] Finished sending %s messages."%len(messageTypes)
+		for messageEvent in eventTypes:
+			message = 'MSH|^~\&|HISSERVER|HISVENDOR|FUZZER|TEST|%s||%s^%s|MSG123|P|2.3||||AL|\r'%(getTime(), messageType, messageEvent)
+			mllpSender(host, port, message)
+	print "[+] Finished sending %s messages."%(len(messageTypes) * len(eventTypes))
 	sys.exit()
 
 #Create messages from builtin message types
 def levelTwo(host, port):
 	messages = [adtSample(), ormSample(), oruSample(), dftSample()]
 	for message in messages:
-		mllpSender(host, port, message)
+		mllpSender(host, port, message) 
 	print "[+] Finished sending %s messages."%len(messages)
 	sys.exit()			
 

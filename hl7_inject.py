@@ -4,6 +4,16 @@ Never use hl7_fuzzer in production Environment, you may seriously harm peoples h
 
 hl7_injector will build "Evil Messages" and send them to the MLLP Server.
 
+Install dependencies:
+python-hl7 is available on PyPi via pip or easy_install:
+
+pip install -U hl7
+
+For recent versions of Debian and Ubuntu, the python-hl7 package is available:
+
+sudo apt-get install python-hl7
+
+
 Check out this site if you need more Message templates:
 http://www.mieweb.com/wiki/Sample_HL7_Messages#MDM.5ET02
 
@@ -91,7 +101,7 @@ def messageBuilder(message, payload, injectPoint):
 	try:
 		h.segments(split[0])[0][int(split[1])][0][int(split[2])][0] = payload
 	except:
-		print "[-] Something went wrong"
+		print "[-] Something went wrong while message building."
 		sys.exit()
 	return h
 
