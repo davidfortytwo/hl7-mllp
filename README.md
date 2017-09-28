@@ -1,6 +1,6 @@
-# hl7-mllpFuzzer
+# hl7-mllp
 
-hl7-mllpFuzzer can be used to determine which message types are accepted by a MLLP Server. The most common message types are included.
+hl7-mllp can be used to determine which message types are accepted by a MLLP Server. The most common message types are included.
 
 The "injection" mode can be used to test interfaces and following applications for different injection vulnerabilities.
 hl7_fuzzer will build "Evil Messages" and send them to the MLLP Server.
@@ -14,7 +14,7 @@ http://smarthl7.com/
 Special thanks to this great project:
 https://python-hl7.readthedocs.io/en/latest/
 
-**Please don't use hl7-mllpFuzzer in a productive environment, you may seriously harm people. This is for testing purpose only.**
+**Please don't use hl7-mllp in a productive environment, you may seriously harm people. This is for testing purpose only.**
 
 Example usage fuzz mode with builtin mode:
 ```
