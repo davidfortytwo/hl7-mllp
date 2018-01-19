@@ -88,7 +88,6 @@ class Messages():
 			return self.dftSample()
 
 class Timeout():
-    """Timeout class using ALARM signal."""
     class Timeout(Exception):
         pass
  
@@ -117,26 +116,68 @@ class Target:
 		try:
 			s.connect((self.host,int(self.port)))
 			s.shutdown(2)
+			print (Fore.GREEN + "*** Specified Host and port reachable ***")
 			return True
 		except:
+			print (Fore.RED + "*** Specified Host and port not reachable ***")
 			return False
 
 class Attacker():
-	def auto(self):
-		return True
 	def manual(self, target):
+		print (Fore.MAGENTA + "*** Starting Manual attacker ***")
 		print (Fore.YELLOW + "Injection point syntax example Firstname: PID.0.5.0.1.0")
-		injectPoint = raw_input("Injection point: ")
+		injectPoint = raw_input("Injection point: [PID.0.5.0.1.0] ")
 		if not injectPoint:
 			injectPoint = "PID.0.5.0.1.0"
+		elif len(injectPoint.split(".")) != 6:
+			print (Fore.RED + "*** Invalid injection point defined ***")
+			self.manual(target)
 		payload = raw_input("Payload: ")
 		if not payload:
 			payload = "foo"
-		messageSource = raw_input("Message source [builtin, file]: ")
+		messageSource = raw_input("Message source [builtin, file]: [builtin] ")
 		if messageSource.upper() == "FILE":
 			Tkinter.Tk().withdraw()
 			sourceFile = tkFileDialog.askopenfilename()
-			print sourceFile
+			if len(sourceFile) > 1:
+				with open(sourceFile, "r") as file:
+					message = file.read().replace("\r", "\n")
+
+				response = self.send_mllp(target.host, target.port, message_after_builder)
+				self.analyse_responses_auto(response, payload, message_after_builder)
+			else:
+				print (Fore.RED + "*** Invalid source file defined ***")
+				sys.exit()
+		else:
+			messageTypes = Messages().builtin_message_types()
+			messageTypeSelected = raw_input("Select message type {0}: [ADT] ".format(messageTypes))
+			if not messageTypeSelected:
+				messageTypeSelected = "ADT"
+			if messageTypeSelected.upper() in messageTypes:
+				message = Messages().get_builtin_message(messageTypeSelected.upper())
+				message_after_builder = self.message_builder_manual(message, payload, injectPoint)
+				response = self.send_mllp(target.host, target.port, message_after_builder)
+				self.analyse_responses_auto(response, payload, message_after_builder)
+			else:
+				print (Fore.RED + "*** Invalid message type selected ***")
+
+	def message_builder_manual(self, message, payload, injectPoint):
+		try:
+			h = hl7.parse(message)
+			split = injectPoint.split('.')
+			h.segments(split[0])[int(split[1])][int(split[2])][int(split[3])][int(split[4])] = payload
+		except:
+			print (Fore.RED + "*** Something went wrong while message building. Check injection point syntax and message ***")
+			sys.exit()
+		return h
+
+	def auto(self, target):
+		print (Fore.MAGENTA + "*** Starting Auto attacker ***")
+		messageSource = raw_input("Message source [builtin, file]: [builtin] ")
+		responses = []
+		if messageSource.upper() == "FILE":
+			Tkinter.Tk().withdraw()
+			sourceFile = tkFileDialog.askopenfilename()
 			if len(sourceFile) > 1:
 				with open(sourceFile, "r") as file:
 					print file.read()
@@ -145,33 +186,98 @@ class Attacker():
 				sys.exit()
 		else:
 			messageTypes = Messages().builtin_message_types()
-			messageTypeSelected = raw_input("Select message type {0}: ".format(messageTypes))
+			messageTypeSelected = raw_input("Select message type {0}: [ADT] ".format(messageTypes))
+			if not messageTypeSelected:
+				messageTypeSelected = "ADT"
 			if messageTypeSelected.upper() in messageTypes:
 				message = Messages().get_builtin_message(messageTypeSelected.upper())
-				message_after_builder = self.message_builder(message, payload, injectPoint)
-				print (Fore.YELLOW +"Message built: \n {0}".format(message_after_builder))
-				sendMessage = raw_input("Send built message [Y]? [Y, N] ")
-				if sendMessage.upper() == "Y":
-					self.send_mllp(target.host, target.port, message_after_builder)
-				else:
-					print(Fore.YELLOW + "*** Shutting down ***")
-					sys.exit()
+		payloadMode = raw_input("Payload [man, builtin, file]: [man] ")
+		if payloadMode.upper() == "BUILTIN":
+			return True
+		elif payloadMode.upper() == "FILE":
+			Tkinter.Tk().withdraw()
+			payloadFile = tkFileDialog.askopenfilename()
+			if len(payloadFile) > 1:
+				with open(payloadFile, "r") as file:
+					for line in file:
+						payload = line.strip()
+						self.inject_point_generator(target, message, payload)
 			else:
-				print (Fore.RED + "*** Invalid message type selected ***")
+				print (Fore.RED + "*** Invalid source file defined ***")
+				sys.exit()
+		else:
+			payloadMan = raw_input("Payload: ")
+			if not payloadMan:
+				payloadMan = "foo"
+			self.inject_point_generator(target, message, payloadMan)
 
-	def message_builder(self, message, payload, injectPoint):
+		if responses:
+			checkResponses = raw_input("Analyse responses [Y, N]? [Y] ")
+			if checkResponses.upper() == "Y":
+				self.analyse_responses_auto(response, payload)
+			else:
+				sys.exit()
+		return True
+	
+
+	def analyse_responses_auto(self, response, payload, message):
+		keywords = ["ERROR", "EXCEPTION", "SQL", "JSON", "XML"]
+		for keyword in keywords:
+			if keyword.upper() in response.upper():
+				print (Fore.GREEN + "*** Error based Keyword in response ***")
+				print (Fore.YELLOW + "Message segment: \n{0}".format(message))
+				print (Fore.YELLOW + "Keyword: {0}".format(keyword))
+				print (Fore.YELLOW + "Response: {0}".format(response))
+				stopQuestion = raw_input("Stop attack [Y, N]? [N] ")
+				if stopQuestion.upper() == "Y":
+					sys.exit()
+		if payload.upper() in response.upper():
+			print (Fore.GREEN + "*** Payload reflected in response ***")
+			print (Fore.YELLOW + "Message segment: \n{0}".format(message))
+			print (Fore.YELLOW + "Paload: {0}".format(payload))
+			print (Fore.YELLOW + "Response: {0}".format(response))
+			stopQuestion = raw_input("Stop attack [Y, N]? [N] ")
+			if stopQuestion.upper() == "Y":
+				sys.exit()
+		return True
+
+	def inject_point_generator(self, target, message, payload):
+		messageCounter = 0
+		segment = 0
+		field = 0
+		repetition = 0
+		component = 0
+		sub_component = 0
+		responses = []
+		#try:
 		h = hl7.parse(message)
-		split = injectPoint.split('.')
-		#print split
-		#h[split[0]][int(split[1])][int(split[2])][int(split[3])][int(split[4])][int(split[5])] = payload
-		try:
-			#h.segments(split[0])[0][int(split[1])][0][int(split[2])][0] = payload
-			h.segments(split[0])[int(split[1])][int(split[2])][int(split[3])][int(split[4])] = payload
-		except:
-			print (Fore.RED + "*** Something went wrong while message building. Check injection point syntax and message ***")
-			sys.exit()
-		return h
-
+		for segment in range(1, len(h)+1):
+			for field in range(1, len(h(segment))):
+				for repetition in range(0, len(h(segment)[field])):
+					if "^" in str(h(segment)[field][repetition]):
+						temp = h(segment)[field][repetition]
+						splited = str(h(segment)[field][repetition]).split("^")
+						for i in range(0, len(splited)):
+							tempSplited = splited[i]
+							splited[i] = payload
+							finalString = ""
+							for j in range(0, len(splited)):
+								finalString += splited[j] + "^"
+							splited[i] = tempSplited
+							h(segment)[field][repetition] = finalString[:-1]
+							response = self.send_mllp(target.host, target.port, h)
+							self.analyse_responses_auto(response, payload, h(segment))
+							messageCounter += 1
+							h(segment)[field][repetition] = temp
+					else:
+						temp = h(segment)[field][repetition]
+						h(segment)[field][repetition] = payload
+						response = self.send_mllp(target.host, target.port, h)
+						self.analyse_responses_auto(response, payload, h(segment))
+						messageCounter += 1
+						h(segment)[field][repetition] = temp
+		print (Fore.GREEN + "*** {0} messages sent ***".format(messageCounter))
+		
 	def send_mllp(self, host, port, message):
 		if type(message) is str: 
 			h = hl7.parse(message)
@@ -186,13 +292,16 @@ class Attacker():
 					print (Fore.GREEN + "*** ACK received ***")
 					client.close()
 				else: 
-					pass
+					print (Fore.RED + "*** No ACK received ***")
+					client.close()
 			else:
 				print (Fore.RED + "*** No response received ***")
+				client.close()
+		return response
 
 class Fuzzer():
 	def simple(self, target):
-		print (Fore.MAGENTA + "*** Start Simple Fuzzing ***")
+		print (Fore.MAGENTA + "*** Starting MSH fuzzer ***")
 		messageTypes = ["ADT", "BAR", "DFT", "MDM", "MFN", "ORM", "ORU", "QRY", "RAS", "RDE", "RGV", "SIU"]
 		eventTypes = ["A01", "O01", "P03", "P01", "T02", "M02", "R01", "A19", "O17", "O11", "O15", "S12"]
 		for messageType in messageTypes:
@@ -203,12 +312,12 @@ class Fuzzer():
 		sys.exit()
 
 	def complex(self, target):
+		print (Fore.MAGENTA + "*** Starting FULL fuzzer ***")
 		messageObject = Messages()
 		messages = [messageObject.adtSample(), messageObject.ormSample(), messageObject.oruSample(), messageObject.dftSample()]
 		for message in messages:
 			self.send_mllp(target.host, target.port, message) 
 		print (Fore.YELLOW + "[+] Finished sending {0} messages.".format(len(messages)))
-		sys.exit()	
 
 	def get_time(self):
 		ts = time.time()
@@ -231,24 +340,60 @@ class Fuzzer():
 				pass
 
 class Kraken():
-	print """  _    _ _     ______ _  __          _              
- | |  | | |   |____  | |/ /         | |             
- | |__| | |       / /| ' / _ __ __ _| | _____ _ __  
- |  __  | |      / / |  < | '__/ _` | |/ / _ \ '_ \ 
- | |  | | |____ / /  | . \| | | (_| |   <  __/ | | |
- |_|  |_|______/_/   |_|\_\_|  \__,_|_|\_\___|_| |_|
-                                                    """
+	print """  _    _ _      ______ _  __          _              
+ | |  | | |    |____  | |/ /         | |             
+ | |__| | |        / /| ' / _ __ __ _| | _____ _ __  
+ |  __  | |       / / |  < | '__/ _` | |/ / _ \ '_ \ 
+ | |  | | |____  / /  | . \| | | (_| |   <  __/ | | |
+ |_|  |_|______|/_/   |_|\_\_|  \__,_|_|\_\___|_| |_|
+  by mez [modzero.ch]                               """
 	if len(sys.argv) != 3:
 		print (Fore.RED + "*** Usage: {0} [Host IP] [Host Port]".format(sys.argv[0]))
 		sys.exit()
 	else:
-		target = Target(sys.argv[1], sys.argv[2])
-		'''if not target.checkPort():
-			print (Fore.RED + "*** Specified Host and port not reachable ***")
-		else:'''
-		
-		Attacker().manual(target)
-
+		host = sys.argv[1]
+		if "-" in sys.argv[2]:
+			split = sys.argv[2].split("-")
+			ports = []
+			for port in range(int(split[0]), int(split[1])+1):
+				ports.append(port)
+			print ports
+			for port in ports:
+				target = Target(host, port)
+				if not target.checkPort():
+					pass
+				else:
+					mode = raw_input("Mode [FUZZ, ATTACK]? [FUZZ] ")
+					if mode.upper() == "ATTACK":
+						module = raw_input("Module [MANUAL, AUTO]? [AUTO] ")
+						if module.upper() == "MANUAL":
+							Attacker().manual(target)
+						else:
+							Attacker().auto(target)
+					else:
+						module = raw_input("Module [MSH, FULL]? [MSH] ")
+						if module.upper() == "FULL":
+							Fuzzer().complex(target)
+						else:
+							Fuzzer().simple(target)
+			sys.exit()
+		target = Target(host, sys.argv[2])
+		if not target.checkPort():
+			sys.exit()
+		else:
+			mode = raw_input("Mode [FUZZ, ATTACK]? [ATTACK] ")
+			if mode.upper() == "FUZZ":
+				module = raw_input("Module [MSH, FULL]? [MSH] ")
+				if module.upper() == "FULL":
+					Fuzzer().complex(target)
+				else:
+					Fuzzer().simple(target)
+			else:
+				module = raw_input("Module [MANUAL, AUTO]? [AUTO] ")
+				if module.upper() == "MANUAL":
+					Attacker().manual(target)
+				else:
+					Attacker().auto(target)
 
 if __name__ == '__main__':
 	Kraken()
