@@ -96,14 +96,16 @@ def mllpSender(host, port, message):
 
 #Build evilMessages for injection mode, with defined payload and injection point
 def messageBuilder(message, payload, injectPoint):
-	h = hl7.parse(message)
-	split = injectPoint.split('.')
-	try:
-		h.segments(split[0])[0][int(split[1])][0][int(split[2])][0] = payload
-	except:
-		print "[-] Something went wrong while message building."
-		sys.exit()
-	return h
+    h = hl7.parse(message)
+    split = injectPoint.split('.')
+    try:
+        h.segments(split[0])[0][int(split[1])][0][int(split[2])][0] = payload
+    except:
+        print("[-] Something went wrong while message building.")
+        print("Message: ", message)
+        print("Payload: ", payload)
+        print("Inject Point: ", injectPoint)
+        sys.exit()
 
 #Injection mode
 def injection(host, port, file, mode, inject, payload):
