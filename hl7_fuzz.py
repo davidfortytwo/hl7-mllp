@@ -115,85 +115,92 @@ def getTime():
 
 #send message to host and port, check if response is "AA" which means message acceptedd
 def mllpSender(host, port, message):
-	try:
-		if type(message) is str: 
-			h = hl7.parse(message)
-		else:
-			h = message
-		messageType = mostCommon()
-		with hl7.client.MLLPClient(host, port) as client:
-			response = client.send_message(message)
-			r = hl7.parse(response)
-			if str(r[1][1]) == "AA": 
-				print "[+] Message type accepted: " + str(h[0][9][0][0]) + "^" + str(h[0][9][0][1]) + " = " + messageType[str(h[0][9][0][0])]
-			else: pass
-	except:
-		print "[-] MLLP sending failed."
-		sys.exit()
+    try:
+        if type(message) is str:
+            h = hl7.parse(message)
+        else:
+            h = message
+        messageType = mostCommon()
+        with hl7.client.MLLPClient(host, port) as client:
+            response = client.send_message(message)
+            r = hl7.parse(response)
+            if str(r[1][1]) == "AA":
+                print(
+                    f"[+] Message type accepted: {str(h[0][9][0][0])}^{str(h[0][9][0][1])} = {messageType[str(h[0][9][0][0])]}")
+            else:
+                pass
+    except:
+        print("[-] MLLP sending failed.")
+        sys.exit()
 
 #Create messages for most common message types, only MSH segment
 def levelOne(host, port):
-	messageTypes = ["ADT", "BAR", "DFT", "MDM", "MFN", "ORM", "ORU", "QRY", "RAS", "RDE", "RGV", "SIU"]
-	eventTypes = ["A01", "O01", "P03", "P01", "T02", "M02", "R01", "A19", "O17", "O11", "O15", "S12"]
-	for messageType in messageTypes:
-		for messageEvent in eventTypes:
-			message = 'MSH|^~\&|HISSERVER|HISVENDOR|FUZZER|TEST|%s||%s^%s|MSG123|P|2.3||||AL|\r'%(getTime(), messageType, messageEvent)
-			mllpSender(host, port, message)
-	print "[+] Finished sending %s messages."%(len(messageTypes) * len(eventTypes))
-	sys.exit()
+    messageTypes = ["ADT", "BAR", "DFT", "MDM", "MFN", "ORM", "ORU", "QRY", "RAS", "RDE", "RGV", "SIU"]
+    eventTypes = ["A01", "O01", "P03", "P01", "T02", "M02", "R01", "A19", "O17", "O11", "O15", "S12"]
+    for messageType in messageTypes:
+        for messageEvent in eventTypes:
+            message = 'MSH|^~\&|HISSERVER|HISVENDOR|FUZZER|TEST|%s||%s^%s|MSG123|P|2.3||||AL|\r'%(getTime(), messageType, messageEvent)
+            mllpSender(host, port, message)
+    print(f"[+] Finished sending {len(messageTypes) * len(eventTypes)} messages.")
+    sys.exit()
 
 #Create messages from builtin message types
 def levelTwo(host, port):
-	messages = [adtSample(), ormSample(), oruSample(), dftSample()]
-	for message in messages:
-		mllpSender(host, port, message) 
-	print "[+] Finished sending %s messages."%len(messages)
-	sys.exit()			
+    messages = [adtSample(), ormSample(), oruSample(), dftSample()]
+    for message in messages:
+        mllpSender(host, port, message)
+    print(f"[+] Finished sending {len(messages)} messages.")
+    sys.exit()
 
 def fuzzer():
-	script_name = os.path.basename(sys.argv[0])
-	parser = argparse.ArgumentParser()
-	parser.add_argument(
-		'host', type=str,
-		help='host to connect to'
-	)
-	parser.add_argument(
-		'port', type=int,
-		help='port to connect to'
-	)
-	parser.add_argument(
-		'mode', type=str,
-		help='"low" send MSH only, "high" send builtin Messages, "custom" send hl7 from file (option "-f")'
-	)
-	parser.add_argument(
-		'-f', '--file', dest='filename',
-		help='path to hl7 file'
-	)
-	parser.add_argument(
-		'-m', '--message', dest='messageSelect',
-		help='"ADT", "ORM", "ORU", "DFT"'
-	)
-	args = parser.parse_args()
-	if len(sys.argv) < 2:
-		print "[-] Use --help for options"
-		sys.exit()
-	if args.host is not None:
-		if args.port is not None:
-			if args.mode == "low":
-				print "[+] Start mode low"
-				levelOne(args.host,args.port)
-			elif args.mode == "high":
-				print "[+] Start mode high"
-				levelTwo(args.host,args.port)
-			elif args.mode == "custom":
-				if args.filename is not None:
-					with open(args.filename, 'rb') as f:
-						stream = f.read()
-						print "[+] Start mode custom"
-						mllpSender(args.host, args.port, stream)
-						print "[+] Finished sending %s." %args.filename
-						sys.exit()
-			else :"[-] Invalid mode selected."; sys.exit()
-	
+    script_name = os.path.basename(sys.argv[0])
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'host', type=str,
+        help='host to connect to'
+    )
+    parser.add_argument(
+        'port', type=int,
+        help='port to connect to'
+    )
+    parser.add_argument(
+        'mode', type=str,
+        help='"low" send MSH only, "high" send builtin Messages, "custom" send hl7 from file (option "-f")'
+    )
+    parser.add_argument(
+        '-f', '--file', dest='filename',
+        help='path to hl7 file'
+    )
+    parser.add_argument(
+        '-m', '--message', dest='messageSelect',
+        help='"ADT", "ORM", "ORU", "DFT"'
+    )
+    args = parser.parse_args()
+
+    if len(sys.argv) < 2:
+        print("[-] Use --help for options")
+        sys.exit()
+
+    if args.host is not None and args.port is not None:
+        if args.mode == "low":
+            print("[+] Start mode low")
+            levelOne(args.host, args.port)
+        elif args.mode == "high":
+            print("[+] Start mode high")
+            levelTwo(args.host, args.port)
+        elif args.mode == "custom" and args.filename is not None:
+            print("[+] Start mode custom")
+            with open(args.filename, 'r') as f:
+                message = f.read()
+                mllpSender(args.host, args.port, message)
+            print("[+] Finished sending custom messages.")
+            sys.exit()
+        else:
+            print("[-] Invalid mode or file not provided for custom mode")
+            sys.exit()
+    else:
+        print("[-] Host or port not provided")
+        sys.exit()
+
 if __name__ == '__main__':
 	fuzzer()
