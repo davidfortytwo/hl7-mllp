@@ -116,6 +116,9 @@ def messageBuilder(message, payload, injectPoint):
         h.segments(split[0])[0][int(split[1])][0][int(split[2])][0] = payload
     except:
         print("[-] Something went wrong while message building.")
+        print("Message: ", message)
+        print("Payload: ", payload)
+        print("Inject Point: ", injectPoint)
         sys.exit()
 
 #Injection mode
